@@ -46,7 +46,7 @@ pycom.heartbeat(False)
 # init GPS parser
 gps = MicropyGPS()
 # Init DTH sensor on Pin 8
-th = DTH('P8', 0)
+th = DHT('P8', 0)
 
 sd = _sdcard()
 os.mount(sd, "/sd")
