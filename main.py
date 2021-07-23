@@ -55,13 +55,13 @@ with open("/sd/log.txt", "a") as f:
     while 1:
         time.sleep(3)
         # hent ut gps koordinater
-        string = get_coords()
+        coords = get_coords()
 
         pm25, pm10 = get_airquality()
 
         result = th.read()
         try:
-            f.write(string + " ")
+            f.write(coords + " ")
             if result.is_valid():
                 f.write(str(result.temperature) + " ")
                 f.write(str(result.humidity) + " ")
