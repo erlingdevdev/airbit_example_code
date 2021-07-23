@@ -5,7 +5,7 @@ from machine import SPI, Pin, UART
 import sdcard
 import time
 from GPS import MicropyGPS
-from dht import DTH
+from dth import DTH
 
 
 def _sdcard():
@@ -43,7 +43,7 @@ def get_airquality():
 
 pycom.heartbeat(False)
 
-# init GPS parser 
+# init GPS parser
 gps = MicropyGPS()
 # Init DTH sensor on Pin 8
 th = DTH('P8', 0)
@@ -74,4 +74,3 @@ with open("/sd/log.txt", "a") as f:
             pycom.rgbled(0x7f0000)
             time.sleep(0.5)
             pycom.rgbled(0x0)
-
