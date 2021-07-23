@@ -62,8 +62,9 @@ with open("/sd/log.txt", "a") as f:
         result = th.read()
         try:
             f.write(string + " ")
-            f.write(str(result.temperature) + " ")
-            f.write(str(result.humidity) + " ")
+            if result.is_valid():
+                f.write(str(result.temperature) + " ")
+                f.write(str(result.humidity) + " ")
             f.write(str(pm25) + " ")
             f.write(str(pm10))
             f.write("\r\n")
