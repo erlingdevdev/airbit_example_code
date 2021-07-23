@@ -5,7 +5,7 @@ from machine import SPI, Pin, UART
 import sdcard
 import time
 from GPS import MicropyGPS
-from dth import DTH
+from dht import DHT
 
 
 def _sdcard():
