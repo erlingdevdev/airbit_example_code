@@ -10,7 +10,8 @@ from dht import DHT
 
 from machine import SPI, Pin, UART
 
-PYBYTES = 1
+# boolean to choose whether to use SD card or pybytes
+PYBYTES = True
 
 
 class Airbit():
@@ -41,17 +42,22 @@ class Airbit():
                 self.pybytes_enabled = True
 
     def dht11(self):
+        # temperature sensor initialisation
         if not self._dht11:
             self._dht11 = DHT(self.DHT11_PIN, 0)
             return self._dht11
 
     def do_temperature(self):
+        # reads value from sensor, and sends to pybytes.
         result = self._dht11.read()
         if result.is_valid():
             self.write_to_media([0, 1], [result.temperature, result.humidity])
         # pycom.rgbled(0xF800)
 
     def do_airquality(self):
+        """
+        Initalises UART, does operation and deinitialises the bus again, so its ready to be used by gps 
+        """
         uart = UART(1, baudrate=9600, pins=self.SDS011_PINS)
         self.sds011 = sds011.SDS011(uart)
         self.sds011.read()
@@ -60,6 +66,9 @@ class Airbit():
         # pycom.rgbled(0xFF00)
 
     def do_gps(self):
+        """
+        Initalises UART, does operation and deinitialises the bus again, so its ready to be used by sds011
+        """
         uart = UART(1, baudrate=9600, pins=self.GPS_PINS)
         time.sleep(0.5)
         msg = uart.read()
@@ -80,20 +89,17 @@ class Airbit():
             self._rtc = machine.RTC()
             self._rtc.ntp_sync("pool.ntp.org")
             print('\nRTC Set from NTP to UTC:', self._rtc.now())
-            # print(utime.localtime(), '\n')
             return self._rtc
 
     def lte(self):
         if not self._lte:
             self._lte = LTE()
-            try:
-                self._lte.deinit()
-                self._lte.reset()
-            except:
-                pass
             self.get_network_lte()
 
     def get_network_lte(self):
+        """
+        attaches and connects modem
+        """
         self._lte.attach(band=20, apn="telenor.iot")
         while not self._lte.isattached():
             time.sleep(0.25)
@@ -113,7 +119,8 @@ class Airbit():
 
         return self._lte
 
-    def write_to_media(self, signals, arguments):
+    def write_to_media(self, signals: list, arguments: list):
+        # Function to send one value to one signal,
         print(arguments, signals)
 
         if self.pybytes_enabled:
