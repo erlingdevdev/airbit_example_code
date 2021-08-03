@@ -1,77 +1,144 @@
-import sds011
-import pycom
-import os
-from machine import SPI, Pin, UART
-import sdcard
-import time
 from GPS import MicropyGPS
+import pycom
+import machine
+import time
+import utime
+import gc
+from network import LTE
+import sds011
 from dht import DHT
 
+from machine import SPI, Pin, UART
 
-def _sdcard():
-
-    spi = SPI(0, mode=SPI.MASTER, baudrate=1000000,
-              polarity=0, phase=0, pins=("P10", "P11", "P14"))
-
-    cs = Pin('P9')
-    sd = sdcard.SDCard(spi, cs)
-    return sd
+PYBYTES = 1
 
 
-def get_coords():
-    global gps
-    uart = UART(1, baudrate=9600, pins=("P3", "P4"))
-    time.sleep(0.5)
-    msg = uart.readall()
-    for item in msg:
-        gps.update(chr(item))
+class Airbit():
+    def __init__(self):
+        self.gps = MicropyGPS()
+        self.sds011 = None
+        self._lte = None
+        self._dht11 = None
+        self._rtc = None
+        self.media = PYBYTES
+        self.pybytes_enabled = False
+        self.pybytes_isinit()
 
-    uart.deinit()
+        self.GPS_PINS = ("P3", "P4")
+        self.SDS011_PINS = ("P6", "P7")
+        self.SDCARD_PINS = ("P10", "P11", "P14")
+        self.DHT11_PIN = "P8"
+        self.init_sensors()
 
-    return (gps.latitude_string() + gps.longitude_string())
+    def init_sensors(self):
+        self.dht11()
+        self.wrtc()
+        self.lte()
+
+    def pybytes_isinit(self):
+        if 'pybytes' in globals():
+            if pybytes.isconnected():
+                self.pybytes_enabled = True
+
+    def dht11(self):
+        if not self._dht11:
+            self._dht11 = DHT(self.DHT11_PIN, 0)
+            return self._dht11
+
+    def do_temperature(self):
+        result = self._dht11.read()
+        if result.is_valid():
+            self.write_to_media([0, 1], [result.temperature, result.humidity])
+        # pycom.rgbled(0xF800)
+
+    def do_airquality(self):
+        uart = UART(1, baudrate=9600, pins=self.SDS011_PINS)
+        self.sds011 = sds011.SDS011(uart)
+        self.sds011.read()
+        uart.deinit()
+        self.write_to_media([4, 5], [self.sds011.pm25, self.sds011.pm10])
+        # pycom.rgbled(0xFF00)
+
+    def do_gps(self):
+        uart = UART(1, baudrate=9600, pins=self.GPS_PINS)
+        time.sleep(0.5)
+        msg = uart.read()
+        if msg:
+            for item in msg:
+                self.gps.update(chr(item))
+
+        uart.deinit()
+        if msg:
+            self.write_to_media(
+                [2, 3], [self.gps.latitude, self.gps.longitude])
+        # pycom.rgbled(0xFFE0)
+        return self.gps.latitude, self.gps.longitude
+
+    def wrtc(self):
+        # set wireless rtc (ntp)
+        if not self._rtc:
+            self._rtc = machine.RTC()
+            self._rtc.ntp_sync("pool.ntp.org")
+            print('\nRTC Set from NTP to UTC:', self._rtc.now())
+            # print(utime.localtime(), '\n')
+            return self._rtc
+
+    def lte(self):
+        if not self._lte:
+            self._lte = LTE()
+            try:
+                self._lte.deinit()
+                self._lte.reset()
+            except:
+                pass
+            self.get_network_lte()
+
+    def get_network_lte(self):
+        self._lte.attach(band=20, apn="telenor.iot")
+        while not self._lte.isattached():
+            time.sleep(0.25)
+
+            print('.', end='')
+            # get the System FSM
+            print(self._lte.send_at_cmd('AT!="fsm"'))
+
+        print("attached!")
+        self._lte.connect()
+
+        while not self._lte.isconnected():
+            time.sleep(0.25)
+            print('#', end='')
+            print(self._lte.send_at_cmd('AT!="fsm"'))
+        print("] connected!")
+
+        return self._lte
+
+    def write_to_media(self, signals, arguments):
+        print(arguments, signals)
+
+        if self.pybytes_enabled:
+            for i, val in enumerate(arguments):
+                pybytes.send_signal(signals[i], val)
+
+    def lte_deattach(self):
+        if self._lte.isattached():
+            self._lte.dettach()
+
+    def lte_disconnect(self):
+        if self._lte.isconnected():
+            self._lte.disconnect()
 
 
-def get_airquality():
-    uart = UART(1, baudrate=9600, pins=("P6", "P7"))
-    time.sleep(0.5)
-    ds = sds011.SDS011(uart)
+def main():
+    unit = Airbit()
 
-    ds.read()
-    uart.deinit()
-    return(ds.pm25, ds.pm10)
-
-
-pycom.heartbeat(False)
-
-# init GPS parser
-gps = MicropyGPS()
-# Init DTH sensor on Pin 8
-th = DHT('P8', 0)
-
-sd = _sdcard()
-os.mount(sd, "/sd")
-
-with open("/sd/log.txt", "a") as f:
     while 1:
+        unit.do_airquality()
         time.sleep(3)
-        # hent ut gps koordinater
-        coords = get_coords()
+        unit.do_gps()
+        time.sleep(3)
+        unit.do_temperature()
+        time.sleep(10)
 
-        pm25, pm10 = get_airquality()
 
-        result = th.read()
-        try:
-            f.write(coords + " ")
-            if result.is_valid():
-                f.write(str(result.temperature) + " ")
-                f.write(str(result.humidity) + " ")
-            f.write(str(pm25) + " ")
-            f.write(str(pm10))
-            f.write("\r\n")
-            pycom.rgbled(0xff00)
-            time.sleep(0.5)
-            pycom.rgbled(0x0)
-        except Exception:
-            pycom.rgbled(0x7f0000)
-            time.sleep(0.5)
-            pycom.rgbled(0x0)
+main()
