@@ -7,11 +7,48 @@ import gc
 from network import LTE
 import sds011
 from dht import DHT
-
+import socket
 from machine import SPI, Pin, UART
 
 # boolean to choose whether to use SD card or pybytes
-PYBYTES = True
+PYBYTES = 0
+
+
+class AirBitSocket():
+    def __init__(self, ip, port):
+        self.sock = None
+        self.ip = ip
+        self.port = port
+
+    def init(self):
+        if not self.sock:
+            self.sock = socket.socket()
+            self.sock.connect(socket.getaddrinfo(
+                self.ip, self.port)[0][-1])
+            return self.sock
+
+    def send(self, temperature: int, humidity: int, pm25: float, pm10: float, northing: str, easting: str):
+        import json
+        data = {"temperature": temperature, "humidity": humidity,
+                "pm25": pm25, "pm10": pm10, "northing": northing, "easting": easting}
+        body = json.dumps(data)
+        content_len = len(body)
+        print(body, content_len, type(body))
+        self.sock.send(
+            b"POST /sensors/add HTTP/1.0\r\nContent-Length: %d\r\n\r\n%s" % (content_len, body))
+
+        print(self.sock.recv(4096))
+
+    def heartbeat(self):
+        """
+        Check connection of server
+        """
+        self.sock.send(b"GET / HTTP/1.0\r\n\r\n")
+        response = self.sock.recv(4096)
+        print(response)
+
+    def close(self):
+        self.sock.close()
 
 
 class Airbit():
@@ -21,10 +58,8 @@ class Airbit():
         self._lte = None
         self._dht11 = None
         self._rtc = None
-        self.media = PYBYTES
         self.pybytes_enabled = False
         self.pybytes_isinit()
-
         self.GPS_PINS = ("P3", "P4")
         self.SDS011_PINS = ("P6", "P7")
         self.SDCARD_PINS = ("P10", "P11", "P14")
@@ -37,9 +72,10 @@ class Airbit():
         self.lte()
 
     def pybytes_isinit(self):
-        if 'pybytes' in globals():
-            if pybytes.isconnected():
-                self.pybytes_enabled = True
+        if PYBYTES:
+            if 'pybytes' in globals():
+                if pybytes.isconnected():
+                    self.pybytes_enabled = True
 
     def dht11(self):
         # temperature sensor initialisation
@@ -51,7 +87,11 @@ class Airbit():
         # reads value from sensor, and sends to pybytes.
         result = self._dht11.read()
         if result.is_valid():
-            self.write_to_media([0, 1], [result.temperature, result.humidity])
+            if PYBYTES:
+                self.write_to_media(
+                    [0, 1], [result.temperature, result.humidity])
+
+            return result.temperature, result.humidity
         # pycom.rgbled(0xF800)
 
     def do_airquality(self):
@@ -62,7 +102,11 @@ class Airbit():
         self.sds011 = sds011.SDS011(uart)
         self.sds011.read()
         uart.deinit()
-        self.write_to_media([4, 5], [self.sds011.pm25, self.sds011.pm10])
+        if PYBYTES:
+            self.write_to_media([4, 5], [self.sds011.pm25, self.sds011.pm10])
+
+        return self.sds011.pm25, self.sds011.pm10
+
         # pycom.rgbled(0xFF00)
 
     def do_gps(self):
@@ -78,13 +122,14 @@ class Airbit():
 
         uart.deinit()
         if msg:
-            self.write_to_media(
-                [2, 3], [self.gps.latitude, self.gps.longitude])
+            if PYBYTES:
+                self.write_to_media(
+                    [2, 3], [self.gps.latitude, self.gps.longitude])
         # pycom.rgbled(0xFFE0)
         return self.gps.latitude, self.gps.longitude
 
     def wrtc(self):
-        # set wireless rtc (ntp)
+        # set wireless rtc (ntp) RTC keeps track of time
         if not self._rtc:
             self._rtc = machine.RTC()
             self._rtc.ntp_sync("pool.ntp.org")
@@ -122,10 +167,10 @@ class Airbit():
     def write_to_media(self, signals: list, arguments: list):
         # Function to send one value to one signal,
         print(arguments, signals)
-
-        if self.pybytes_enabled:
-            for i, val in enumerate(arguments):
-                pybytes.send_signal(signals[i], val)
+        if PYBYTES:
+            if self.pybytes_enabled:
+                for i, val in enumerate(arguments):
+                    pybytes.send_signal(signals[i], val)
 
     def lte_deattach(self):
         if self._lte.isattached():
@@ -138,14 +183,17 @@ class Airbit():
 
 def main():
     unit = Airbit()
-
+    socket = AirBitSocket("51.107.211.213", 8080)
+    socket.init()
     while 1:
-        unit.do_airquality()
+        pm25, pm10 = unit.do_airquality()
         time.sleep(3)
-        unit.do_gps()
+        northing, easting = unit.do_gps()
         time.sleep(3)
-        unit.do_temperature()
+        temp, humidity = unit.do_temperature()
         time.sleep(10)
+        socket.send(temperature=temp, humidity=humidity,
+                    northing=northing, easting=easting, pm25=pm25, pm10=pm10)
 
 
 main()
