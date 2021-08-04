@@ -65,7 +65,6 @@ def send(url: str, time: list, temperature: int, humidity: int, pm25: float, pm1
     data = {"time": time, "temperature": temperature, "humidity": humidity,
             "pm25": pm25, "pm10": pm10, "northing": northing, "easting": easting}
     body = json.dumps(data)
-    # Mike murphys edited micropython library
     try:
         resp = urequests.request(
             "POST", "http://51.107.211.213:8080/sensors/add", json=data)
