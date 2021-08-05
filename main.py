@@ -7,7 +7,7 @@ import gc
 from network import LTE
 import sds011
 from dht import DHT
-import usocket
+import socket
 import urequests
 from machine import SPI, Pin, UART
 
@@ -15,62 +15,34 @@ from machine import SPI, Pin, UART
 PYBYTES = 0
 
 
-class AirBitSocket():
-    def __init__(self, ip, port):
-        self.sock = None
-        self.ip = ip
-        self.port = port
+def send(url: str, time=[], temperature=0, humidity=0, pm25=0.0, pm10=0.0, northing=[], easting=[]):
 
-    def init(self):
-        if not self.sock:
-            self.sock = socket.socket()
-            self.sock.connect(socket.getaddrinfo(
-                self.ip, self.port)[0][-1])
-            return self.sock
-
-    def send(self, time, temperature: int, humidity: int, pm25: float, pm10: float, northing: str, easting: str):
-        import json
-        data = {"time": time, "temperature": temperature, "humidity": humidity,
-                "pm25": pm25, "pm10": pm10, "northing": northing, "easting": easting}
-        body = json.dumps(data)
-        content_len = len(body)
-        # print(body, content_len, type(body))
-        # self.sock.setblocking(True)
-        # self.sock.send(
-        #     b"POST /sensors/add HTTP/1.1\r\nHost: 51.107.211.213:8080\r\nConnection: Keep-Alive\r\nKeep-Alive: timeout=5, max=1000\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s" % (content_len, body))
-        # self.sock.setblocking(False)
-        # Mike murphys edited micropython library
-        try:
-            resp = urequests.request(
-                "POST", "http://51.107.211.213:8080/sensors/add", json=data)
-            print(resp.status_code)
-        except OSError:
-            pass
-        # print(self.sock.recv(4096))
-
-    def heartbeat(self):
-        """
-        Check connection of server
-        """
-        self.sock.send(b"GET / HTTP/1.1\r\n\r\n")
-        response = self.sock.recv(4096)
-        print(response)
-
-    def close(self):
-        self.sock.close()
-
-
-def send(url: str, time: list, temperature: int, humidity: int, pm25: float, pm10: float, northing: str, easting: str):
+    # data = {"time": time, "temperature": temperature, "humidity": humidity,
+    #         "pm25": pm25, "pm10": pm10, "northing": northing, "easting": easting}
+    # resp = urequests.request(
+    #     "POST", "http://%s/sensors/add" % (url), json=data)
+    # print(resp.status_code, resp.content)
     import json
+    if ":" in url:
+        host, port = url.split(":", 1)
+        port = int(port)
+
+    ai = socket.getaddrinfo(host, port)
+    ai = ai[0]
+
+    sock = socket.socket()
+    sock.connect(ai[-1])
     data = {"time": time, "temperature": temperature, "humidity": humidity,
             "pm25": pm25, "pm10": pm10, "northing": northing, "easting": easting}
     body = json.dumps(data)
-    try:
-        resp = urequests.request(
-            "POST", "http://51.107.211.213:8080/sensors/add", json=data)
-        print(resp.status_code)
-    except OSError:
-        pass
+    content_len = len(body)
+    print(body, content_len, type(body))
+    sock.setblocking(True)
+    sock.send(
+        b"POST /sensors/add HTTP/1.1\r\nHost: %s\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s" % (url, content_len, body))
+    sock.setblocking(False)
+    print(sock.recv(4096))
+    sock.close()
 
 
 class Airbit():
@@ -122,8 +94,11 @@ class Airbit():
         """
         uart = UART(1, baudrate=9600, pins=self.SDS011_PINS)
         self.sds011 = sds011.SDS011(uart)
-        self.sds011.read()
+        err = self.sds011.read()
+
         uart.deinit()
+        if not err:
+            return 0.0, 0.0
         if PYBYTES:
             self.write_to_media([4, 5], [self.sds011.pm25, self.sds011.pm10])
 
@@ -205,15 +180,11 @@ class Airbit():
 
 def main():
     unit = Airbit()
-    # socket = AirBitSocket("51.107.211.213", 8080)
-    # socket.init()
     while 1:
         pm25, pm10 = unit.do_airquality()
-        # time.sleep(3)
         northing, easting = unit.do_gps()
-        # time.sleep(3)
         temp, humidity = unit.do_temperature()
-        send(url="51.107.211.213:8080", time=unit._rtc.now(), temperature=temp, humidity=humidity,
+        send(url="51.107.210.9:8080", time=unit._rtc.now(), temperature=temp, humidity=humidity,
              northing=northing, easting=easting, pm25=pm25, pm10=pm10)
 
 

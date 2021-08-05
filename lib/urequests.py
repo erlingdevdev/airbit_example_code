@@ -11,6 +11,7 @@
 # - Changed getattrinfo call to be compatibile with Pycom firmware
 #   (2 arguments instead of 4)
 #
+# Copied from https://github.com/arcticobservatory/co2_ou_device/blob/master/src/lib/urequests.py
 
 import usocket
 
@@ -69,6 +70,7 @@ def request(method, url, data=None, json=None, headers={}, stream=None):
     ai = ai[0]
 
     s = usocket.socket(ai[0], ai[1], ai[2])
+    print(ai)
     try:
         s.connect(ai[-1])
         if proto == "https:":
