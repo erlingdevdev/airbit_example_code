@@ -1,15 +1,12 @@
+import utime
 from GPS import MicropyGPS
-import pycom
 import machine
 import time
-import utime
-import gc
 from network import LTE
 import sds011
 from dht import DHT
 import socket
-import urequests
-from machine import SPI, Pin, UART
+from machine import UART
 
 # boolean to choose whether to use SD card or pybytes
 PYBYTES = 0
@@ -17,11 +14,6 @@ PYBYTES = 0
 
 def send(url: str, time=[], temperature=0, humidity=0, pm25=0.0, pm10=0.0, northing=[], easting=[]):
 
-    # data = {"time": time, "temperature": temperature, "humidity": humidity,
-    #         "pm25": pm25, "pm10": pm10, "northing": northing, "easting": easting}
-    # resp = urequests.request(
-    #     "POST", "http://%s/sensors/add" % (url), json=data)
-    # print(resp.status_code, resp.content)
     import json
     if ":" in url:
         host, port = url.split(":", 1)
@@ -29,9 +21,13 @@ def send(url: str, time=[], temperature=0, humidity=0, pm25=0.0, pm10=0.0, north
 
     ai = socket.getaddrinfo(host, port)
     ai = ai[0]
-
     sock = socket.socket()
-    sock.connect(ai[-1])
+    try:
+
+        sock.connect(ai[-1])
+    except OSError as err:
+        print(err)
+        return -1
     data = {"time": time, "temperature": temperature, "humidity": humidity,
             "pm25": pm25, "pm10": pm10, "northing": northing, "easting": easting}
     body = json.dumps(data)
@@ -43,6 +39,7 @@ def send(url: str, time=[], temperature=0, humidity=0, pm25=0.0, pm10=0.0, north
     sock.setblocking(False)
     print(sock.recv(4096))
     sock.close()
+    return 0
 
 
 class Airbit():
@@ -90,7 +87,7 @@ class Airbit():
 
     def do_airquality(self):
         """
-        Initalises UART, does operation and deinitialises the bus again, so its ready to be used by gps 
+        Initalises UART, does operation and deinitialises the bus again, so its ready to be used by gps
         """
         uart = UART(1, baudrate=9600, pins=self.SDS011_PINS)
         self.sds011 = sds011.SDS011(uart)
@@ -129,9 +126,14 @@ class Airbit():
         # set wireless rtc (ntp) RTC keeps track of time
         if not self._rtc:
             self._rtc = machine.RTC()
-            self._rtc.ntp_sync("pool.ntp.org")
-            print('\nRTC Set from NTP to UTC:', self._rtc.now())
+            self._rtc.ntp_sync("no.pool.ntp.org")
+            # print('\nRTC Set from NTP to UTC:', self._rtc.now())
             return self._rtc
+
+    def timenow(self):
+        """Converts rtc UTC time to UTC +2"""
+        utime.timezone(7200)
+        return utime.localtime()
 
     def lte(self):
         if not self._lte:
@@ -184,8 +186,13 @@ def main():
         pm25, pm10 = unit.do_airquality()
         northing, easting = unit.do_gps()
         temp, humidity = unit.do_temperature()
-        send(url="51.107.210.9:8080", time=unit._rtc.now(), temperature=temp, humidity=humidity,
-             northing=northing, easting=easting, pm25=pm25, pm10=pm10)
+        print()
+        if not PYBYTES:
+            stat = send(url="51.107.210.9:8080", time=unit.timenow(), temperature=temp, humidity=humidity,
+                        northing=northing, easting=easting, pm25=pm25, pm10=pm10)
+            if stat < 0:
+                print("Server not on, write to sd instead")
+                time.sleep(10)
 
 
 main()
