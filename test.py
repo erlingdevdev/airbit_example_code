@@ -1,10 +1,11 @@
-
-
 import socket
 import ssl
 import time
 from network import LTE
 
+"""
+Asserts the modem
+"""
 lte = LTE()         # instantiate the LTE object
 lte.attach()        # attach the cellular modem to a base station
 while not lte.isattached():
