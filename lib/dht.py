@@ -41,7 +41,6 @@ class DHT:
         data = pycom.pulses_get(self.__pin, 100)
         self.__pin.init(Pin.OPEN_DRAIN)
         self.__pin(1)
-        # print(data)
         bits = []
         for a, b in data:
             if a == 1 and 18 <= b <= 28:
