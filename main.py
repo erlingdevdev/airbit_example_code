@@ -1,5 +1,7 @@
 
 import socket
+import utime
+import json
 
 import airbit
 
@@ -46,11 +48,11 @@ def run():
 
     while 1:
         coords = airbit.get_coords(gps)
-        pm2, pm10 = airbit.get_airquality(sds)
+        pm25, pm10 = airbit.get_airquality(sds)
         dht = airbit.get_temphum(dht)
 
-        stat = send(url="51.13.36.180:8080", time=utime.gmtime, temperature=temperature.temperature,
-                humidity=temperature.humidity, northing=gps.latitude, easting=gps.longitude, pm25=pm25, pm10=pm10)
+        stat = send(url="51.13.36.180:8080", time=utime.gmtime, temperature=dht.temperature,
+                humidity=dht.humidity, northing=gps.latitude, easting=gps.longitude, pm25=pm25, pm10=pm10)
 
 
 if __name__ == "__main__":
