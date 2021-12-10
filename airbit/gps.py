@@ -13,15 +13,17 @@
 from math import floor, modf
 
 # Import utime or time for fix time handling
-try:
-    # Assume running on MicroPython
-    import utime
-except ImportError:
-    # Otherwise default to time module for non-embedded implementations
-    # Should still support millisecond resolution.
-    import time
+# try:
+import time
+#     # Assume running on MicroPython
+#     import utime
+# except ImportError:
+#     # Otherwise default to time module for non-embedded implementations
+#     # Should still support millisecond resolution.
+#     import time
 
 import machine
+
 
 class MicropyGPS(object):
     """GPS NMEA Sentence Parser. Creates object that stores all relevant GPS data and statistics.

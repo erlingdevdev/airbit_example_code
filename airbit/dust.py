@@ -38,7 +38,7 @@ class SDS011:
         self._packet_status = False
         self._packet = ()
 
-        self.set_reporting_mode_query()
+        # self.set_reporting_mode_query()
 
     @property
     def pm25(self):
@@ -116,7 +116,8 @@ class SDS011:
             return False
 
         self._uart = uart
-        
+
+        self.set_reporting_mode_query()
         # Query measurement
         self.query()
 
@@ -142,13 +143,11 @@ class SDS011:
 
 
 def get_airquality(dust: SDS011) -> tuple:
-    
+
     uart = machine.UART(1, baudrate=9600, pins=("P8", "P9"))
     time.sleep(0.5)
-    ds = dust(uart)
 
-    ds.read()
+    dust.read(uart)
     uart.deinit()
 
-    return(ds.pm25, ds.pm10)
-
+    return(dust.pm25, dust.pm10)
