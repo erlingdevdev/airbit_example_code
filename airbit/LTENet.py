@@ -227,7 +227,7 @@ class StartIoT:
 
     def send(self, data):
         if not self.lte.isconnected():
-            raise Exception('Not connected! Unable to send.')
+            raise ConnectionError('LTE not connected! Unable to send.')
 
         id = Coap.send_request(IOTGW_IP, Coap.REQUEST_POST, uri_port=IOTGW_PORT,
                                uri_path=IOTGW_ENDPOINT, payload=data, include_options=True)
@@ -264,5 +264,7 @@ def send(iot, temperature=0, humidity=0, coords=[], pm25=0.0, pm10=0.0):
     payload = json.dumps(payload)
     try:
         iot.send(payload)
+    except ConnectionError as ce:
+        print(ce)
     except Exception as e:
         print(e)
