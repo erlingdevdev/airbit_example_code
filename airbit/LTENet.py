@@ -231,7 +231,7 @@ class StartIoT:
 
         id = Coap.send_request(IOTGW_IP, Coap.REQUEST_POST, uri_port=IOTGW_PORT,
                                uri_path=IOTGW_ENDPOINT, payload=data, include_options=True)
-        print('CoAP POST message ID: {}'.format(id))
+        # print('CoAP POST message ID: {}'.format(id))
 
     def pull(self, uri_path='/'):
         if not self.lte.isconnected():
@@ -240,26 +240,46 @@ class StartIoT:
         id = Coap.send_request(IOTGW_IP, Coap.REQUEST_GET,
                                uri_port=IOTGW_PORT, uri_path=uri_path, include_options=True)
         Coap.read()
-        print('CoAP GET message ID: {}'.format(id))
+        # print('CoAP GET message ID: {}'.format(id))
 
 
-def setup() -> StartIoT:
+def debug_send(iot):
+    iot.send(json.dumps({"heartbeat": 1}))
+
+
+def setup(debug=0) -> StartIoT:
     iot = None
+    iot = StartIoT(network="lte-m")
     try:
-        iot = StartIoT(network="lte-m")
+        get_numbers(iot)
         iot.connect()
     except Exception as e:
         print("Got error:\n", e)
+
+    if debug:
+        while 1:
+            sleep(5)
+            debug_send(iot)
     return iot
 
 
-def send(iot, temperature=0, humidity=0, coords=[], pm25=0.0, pm10=0.0):
+def get_numbers(iot) -> None:
+
+    # prints out IMEI numbers to use for coap connectiont
+    print("external and internal id start")
+    iot.send_at_cmd_pretty("AT+CIMI")
+    iot.send_at_cmd_pretty("AT+CGSN")
+    print("end")
+
+
+def send(iot, temperature=0, humidity=0, latitude=[], longitude=[], pm25=0.0, pm10=0.0):
+
     payload = {
-        'temperature': temperature,
-        'humidity': humidity,
-        'coordinates': coords,
-        'pm25': pm25,
-        'pm10': pm10,
+        'Temperature': temperature,
+        'Humidity': humidity,
+        'latlng': "%3f,%3f" % (latitude, longitude),
+        'Dust sensor (pm25)': pm25,
+        'Dust sensor(pm10)': pm10,
     }
     payload = json.dumps(payload)
     try:

@@ -18,3 +18,7 @@ lib/ inneholder libraries som eventuelt skal importeres inn i main koden.
 1 Flatkabel med fire ledere (til støvsensoren, hvit/blå)
 1 rad header-pinner
 1 rad female header-pinner
+
+
+For at SD kort skal fungere, maa pins p4, p8 og p23 ikke vaere i bruk.
+Neste revisjon boer unngaa disse pinsene

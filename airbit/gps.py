@@ -565,7 +565,10 @@ class MicropyGPS(object):
         valid_sentence = False
 
         # Validate new_char is a printable char
-        ascii_char = ord(new_char)
+        try:
+            ascii_char = ord(new_char)
+        except Exception:
+            return None
 
         if 10 <= ascii_char <= 126:
             self.char_count += 1
@@ -839,19 +842,35 @@ class MicropyGPS(object):
                            }
 
 
+def conversion(old):
+    # converts from decimal direction to latitude longitude
+    direction = {'N': 1, 'S': -1, 'E': 1, 'W': -1}
+    deg = old.replace("°", " ").replace("'", " ").split()
+    coordinate = float(deg[0]) * direction[deg[1]]
+    if coordinate:
+        return coordinate
+    else:
+        return None
+
+
 def get_coords(gps: MicropyGPS) -> str:
 
-    uart = machine.UART(1, baudrate=9600, pins=("P3", "P4"))
+    uart = machine.UART(1, timeout_chars=8,baudrate=9600, pins=("P3", "P4"))
     time.sleep(0.5)
     msg = uart.read()
+    gps.coord_format = 'dd'
 
     if msg:
         for item in msg:
-            gps.update(chr(item))
+            gps.update(item)
 
     uart.deinit()
-
-    return (gps.latitude_string() + gps.longitude_string())
+    lat, lon = conversion(gps.latitude_string()), conversion(
+        gps.longitude_string())
+    if not lat or not lon:
+        lat = 69.6489
+        lon = 18.95508
+    return lat, lon
 
 
 if __name__ == "__main__":

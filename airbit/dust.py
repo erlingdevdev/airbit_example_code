@@ -94,7 +94,6 @@ class SDS011:
     def process_measurement(self, packet):
         try:
             *data, checksum, tail = struct.unpack('<HHBBBs', packet)
-            print(data)
             self._pm25 = data[0]/10.0
             self._pm10 = data[1]/10.0
             checksum_OK = (checksum == (sum(data) % 256))
@@ -144,7 +143,7 @@ class SDS011:
 
 def get_airquality(dust: SDS011) -> tuple:
 
-    uart = machine.UART(1, baudrate=9600, pins=("P8", "P9"))
+    uart = machine.UART(1, timeout_chars=8, baudrate=9600, pins=("P8", "P9"))
     time.sleep(0.5)
 
     dust.read(uart)
