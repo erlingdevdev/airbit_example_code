@@ -1,3 +1,4 @@
+import pycom
 import json
 from network import LTE
 from time import sleep
@@ -180,6 +181,10 @@ class StartIoT:
         print(ip_address)
 
         # Initialise the CoAP module
+        try:
+            Coap.deinit()
+        except Exception as e:
+            pass
         Coap.init(ip_address)
 
         # Register the response handler for the requests that the module initiates as a CoAP Client
@@ -243,8 +248,8 @@ class StartIoT:
         # print('CoAP GET message ID: {}'.format(id))
 
 
-def debug_send(iot):
-    iot.send(json.dumps({"heartbeat": 1}))
+def debug_send(iot, integer: int) -> None:
+    iot.send(json.dumps({"heartbeat": integer}))
 
 
 def setup(debug=0) -> StartIoT:
@@ -256,10 +261,10 @@ def setup(debug=0) -> StartIoT:
     except Exception as e:
         print("Got error:\n", e)
 
-    if debug:
-        while 1:
+    if not debug:
+        for i in range(1, 1000):
             sleep(5)
-            debug_send(iot)
+            debug_send(iot, i)
     return iot
 
 
@@ -281,8 +286,15 @@ def send(iot, temperature=0, humidity=0, latitude=[], longitude=[], pm25=0.0, pm
         'Dust sensor (pm25)': pm25,
         'Dust sensor(pm10)': pm10,
     }
+    print(payload)
     payload = json.dumps(payload)
     try:
         iot.send(payload)
+        pycom.rgbled(0x00ff00)
+        sleep(0.5)
+        pycom.rgbled(0x0)
     except Exception as e:
+        pycom.rgbled(0xff0000)
+        sleep(0.5)
+        pycom.rgbled(0x0)
         print(e)

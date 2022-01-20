@@ -855,7 +855,7 @@ def conversion(old):
 
 def get_coords(gps: MicropyGPS) -> str:
 
-    uart = machine.UART(1, timeout_chars=8,baudrate=9600, pins=("P3", "P4"))
+    uart = machine.UART(1, timeout_chars=8, baudrate=9600, pins=("P3", "P4"))
     time.sleep(0.5)
     msg = uart.read()
     gps.coord_format = 'dd'
