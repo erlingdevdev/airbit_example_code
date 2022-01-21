@@ -286,7 +286,6 @@ def send(iot, temperature=0, humidity=0, latitude=[], longitude=[], pm25=0.0, pm
         'Dust sensor (pm25)': pm25,
         'Dust sensor(pm10)': pm10,
     }
-    print(payload)
     payload = json.dumps(payload)
     try:
         iot.send(payload)
