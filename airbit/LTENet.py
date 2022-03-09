@@ -261,7 +261,7 @@ def setup(debug=0) -> StartIoT:
     except Exception as e:
         print("Got error:\n", e)
 
-    if not debug:
+    if debug:
         for i in range(1, 1000):
             sleep(5)
             debug_send(iot, i)
@@ -271,13 +271,13 @@ def setup(debug=0) -> StartIoT:
 def get_numbers(iot) -> None:
 
     # prints out IMEI numbers to use for coap connectiont
-    print("external and internal id start")
+    print("\n\nexternal and internal id start\n")
     iot.send_at_cmd_pretty("AT+CIMI")
     iot.send_at_cmd_pretty("AT+CGSN")
     print("end")
 
 
-def send(iot, temperature=0, humidity=0, latitude=[], longitude=[], pm25=0.0, pm10=0.0):
+def send(iot, temperature=0, humidity=0, latitude=[], longitude=[], pm25=0.0, pm10=0.0, ):
 
     payload = {
         'Temperature': temperature,

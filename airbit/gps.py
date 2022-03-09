@@ -10,7 +10,9 @@
 # More Helper Functions
 # Dynamically limit sentences types to parse
 
+# from inspect import getcallargs
 from math import floor, modf
+import sys
 
 # Import utime or time for fix time handling
 # try:
@@ -855,14 +857,17 @@ def conversion(old):
 
 def get_coords(gps: MicropyGPS) -> str:
 
-    uart = machine.UART(1, timeout_chars=8, baudrate=9600, pins=("P3", "P4"))
-    time.sleep(0.5)
+    uart = machine.UART(1, timeout_chars=8, baudrate=9600, pins=("P4", "P3"))
+    time.sleep(1)
     msg = uart.read()
     gps.coord_format = 'dd'
 
     if msg:
-        for item in msg:
-            gps.update(item)
+        try:
+            for item in msg.decode():
+                gps.update(item)
+        except UnicodeError:
+            lat, lon = None, None
 
     uart.deinit()
     lat, lon = conversion(gps.latitude_string()), conversion(
@@ -870,8 +875,11 @@ def get_coords(gps: MicropyGPS) -> str:
     if not lat or not lon:
         lat = 69.6489
         lon = 18.95508
-    return lat, lon
+    return lat, lon, msg
 
 
 if __name__ == "__main__":
-    pass
+    import time
+    gps = MicropyGPS()
+    while 1:
+        print(get_coords(gps))

@@ -1,24 +1,26 @@
 import time
 import airbit
-import uos
+import pycom
 
 
-def run():
-    sds = airbit.SDS011()
-    gps = airbit.MicropyGPS()
-    dht = airbit.DHT('P21', 1)
-    # iot = airbit.setup(debug=0)
+print("starting")
 
-    while 1:
-        latitude, longitude = airbit.get_coords(gps)
-        pm25, pm10 = airbit.get_airquality(sds)
-        temperature, humidity = airbit.get_temphum(dht)
-        print(temperature, humidity, pm10, pm25, latitude, longitude)
-        # airbit.send(iot, temperature=temperature,
-        #             humidity=humidity, latitude=latitude, longitude=longitude, pm10=pm10, pm25=pm25)
-        time.sleep(1)
+sds = airbit.SDS011()
+gps = airbit.MicropyGPS()
+dht = airbit.DHT('P21', 1)
 
+iot = airbit.setup()
 
-if __name__ == "__main__":
+while 1:
+    latitude, longitude, nmea = airbit.get_coords(gps)
+    pm25, pm10 = airbit.get_airquality(sds)
+    temperature, humidity = airbit.get_temphum(dht)
 
-    run()
+    print("Temperature: %s and humidity: %s" % (temperature, humidity))
+    print("pm2.5: %s and pm10: %s " % (pm25, pm10))
+    print("Latitude: %s and Longitude %s " % (latitude, longitude))
+
+    airbit.send(iot, temperature=temperature, humidity=humidity,
+                latitude=latitude, longitude=longitude, pm10=pm10, pm25=pm25, )
+
+    time.sleep(10)
